@@ -1,0 +1,19 @@
+kind: Deployment #kubectl api-resources
+apiVersion: apps/v1    
+metadata: 
+  name: proj2-deployment
+  labels:                    #not mandatory
+    check: check2
+spec: 
+  replicas: 2
+  selector: 
+    matchLabels: 
+      app: proj2-pods
+  template: 
+    metadata: 
+      labels: 
+        app: proj2-pods
+    spec: 
+      containers: 
+        - name: proj2-container
+          image: ppagilla/proj2
