@@ -1,0 +1,12 @@
+kind: Service
+apiVersion: v1
+metadata: 
+  name: proj2-np-svc
+spec: 
+  type: NodePort
+  selector: 
+    app: proj2-pods              #labels of pods to which we want to route traffic.
+  ports: 
+    - name: port-inside-cont
+      port: 80
+      nodePort: 30008   #30000 < np < 32767
