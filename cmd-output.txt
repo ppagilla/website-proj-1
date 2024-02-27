@@ -1,0 +1,203 @@
+ubuntu@ip-172-31-0-240:~$ ls -lart
+total 152
+-rw-r--r-- 1 ubuntu ubuntu   807 Jan  6  2022 .profile
+-rw-r--r-- 1 ubuntu ubuntu  3771 Jan  6  2022 .bashrc
+-rw-r--r-- 1 ubuntu ubuntu   220 Jan  6  2022 .bash_logout
+drwxr-xr-x 3 root   root    4096 Feb 27 15:03 ..
+drwx------ 2 ubuntu ubuntu  4096 Feb 27 15:03 .cache
+-rw-r--r-- 1 ubuntu ubuntu     0 Feb 27 15:04 .sudo_as_admin_successful
+-rw-r--r-- 1 ubuntu ubuntu 39585 Feb 27 15:07 ansible.cfg
+-rw-rw-r-- 1 ubuntu ubuntu   173 Feb 27 15:08 m1-pb.yaml
+-rw-rw-r-- 1 ubuntu ubuntu  1024 Feb 27 15:08 m1.sh
+drwxr-xr-x 2 ubuntu ubuntu  4096 Feb 27 15:12 .terraform.d
+drwx------ 3 ubuntu ubuntu  4096 Feb 27 15:13 .config
+drwxr-xr-x 3 ubuntu ubuntu  4096 Feb 27 15:15 .terraform
+-rw-r--r-- 1 ubuntu ubuntu  1377 Feb 27 15:15 .terraform.lock.hcl
+-rw-rw-r-- 1 ubuntu ubuntu 13989 Feb 27 15:18 terraform.tfstate
+-rw-rw-r-- 1 ubuntu ubuntu   159 Feb 27 15:18 m3-pb.yaml
+-rw-rw-r-- 1 ubuntu ubuntu    49 Feb 27 15:21 invF
+-r-------- 1 ubuntu ubuntu  1675 Feb 27 15:21 tfs.pem
+drwxrwxr-x 4 ubuntu ubuntu  4096 Feb 27 15:25 .ansible
+drwx------ 2 ubuntu ubuntu  4096 Feb 27 15:26 .ssh
+-rw-rw-r-- 1 ubuntu ubuntu  1305 Feb 27 15:29 m3.sh
+-rw-rw-r-- 1 ubuntu ubuntu   171 Feb 27 15:51 m24-pb.yaml
+-rw-rw-r-- 1 ubuntu ubuntu  1098 Feb 27 15:52 m24.sh
+-rw-rw-r-- 1 ubuntu ubuntu   711 Feb 27 16:41 resources.tf
+-rw------- 1 ubuntu ubuntu  7667 Feb 27 16:41 .viminfo
+drwxr-x--- 8 ubuntu ubuntu  4096 Feb 27 16:41 .
+-rw------- 1 ubuntu ubuntu  1814 Feb 27 16:46 .bash_history
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ ls -ltr
+total 92
+-rw-r--r-- 1 ubuntu ubuntu 39585 Feb 27 15:07 ansible.cfg
+-rw-rw-r-- 1 ubuntu ubuntu   173 Feb 27 15:08 m1-pb.yaml
+-rw-rw-r-- 1 ubuntu ubuntu  1024 Feb 27 15:08 m1.sh
+-rw-rw-r-- 1 ubuntu ubuntu 13989 Feb 27 15:18 terraform.tfstate
+-rw-rw-r-- 1 ubuntu ubuntu   159 Feb 27 15:18 m3-pb.yaml
+-rw-rw-r-- 1 ubuntu ubuntu    49 Feb 27 15:21 invF
+-r-------- 1 ubuntu ubuntu  1675 Feb 27 15:21 tfs.pem
+-rw-rw-r-- 1 ubuntu ubuntu  1305 Feb 27 15:29 m3.sh
+-rw-rw-r-- 1 ubuntu ubuntu   171 Feb 27 15:51 m24-pb.yaml
+-rw-rw-r-- 1 ubuntu ubuntu  1098 Feb 27 15:52 m24.sh
+-rw-rw-r-- 1 ubuntu ubuntu   711 Feb 27 16:41 resources.tf
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ cat m1.sh 
+#!/bin/bash
+echo "deleting if exists and creating a log file to track the process"
+rm -rf /tmp/m1.log
+touch /tmp/m1.log
+
+echo "pvn installing java" >> /tmp/m1.log
+sudo add-apt-repository ppa:openjdk-r/ppa >> /tmp/m1.log
+sudo apt-get update >> /tmp/m1.log
+sudo apt-get install -y fontconfig openjdk-17-jre openjdk-17-jdk >> /tmp/m1.log
+
+echo "pvn installing jenkins" >> /tmp/m1.log
+sudo wget -O /usr/share/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key >> /tmp/m1.log
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list >> /tmp/m1.log
+sudo apt-get update >> /tmp/m1.log
+sudo apt-get install jenkins -y >> /tmp/m1.log
+
+echo "installing terraform" >> /tmp/m1.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installTerraform.sh -P /tmp >> /tmp/m1.log
+sudo chmod 755 /tmp/installTerraform.sh >> /tmp/m1.log
+sudo bash /tmp/installTerraform.sh >> /tmp/m1.log
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ cat m1-pb.yaml 
+- name: Installing java jenkins and terraform in Machine-1
+  hosts: localhost
+  become: true
+  become_user: root
+  tasks:
+  - name: executing m1.sh script
+    script: m1.sh
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ cat resources.tf 
+provider "aws" {
+        region = "us-east-2"
+        access_key = ""
+        secret_key = ""
+}
+resource "aws_instance" "instance2" {
+        ami = "ami-05fb0b8c1424f266b"
+        instance_type = "t2.micro"
+        key_name = "tfs"
+        tags = {
+        Name = "m2"
+        }
+}
+resource "aws_instance" "instance3" {
+        ami = "ami-05fb0b8c1424f266b"
+        instance_type = "t2.small"
+        key_name = "tfs"
+        tags = {
+        Name = "m3"
+        }
+}
+resource "aws_instance" "instance4" {
+        ami = "ami-05fb0b8c1424f266b"
+        instance_type = "t2.micro"
+        key_name = "tfs"
+        tags = {
+        Name = "m4"
+        }
+}
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ terraform state list
+aws_instance.instance2
+aws_instance.instance3
+aws_instance.instance4
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ cat invF 
+[m3]
+172.31.3.123
+
+[m24]
+172.31.4.93
+172.31.2.12
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ cat m3.sh 
+#!/bin/bash
+echo "deleting if exists and creating a log file to track the process"
+rm -rf /tmp/m3.log
+touch /tmp/m3.log
+
+echo "pvn installing java" >> /tmp/m3.log
+sudo add-apt-repository ppa:openjdk-r/ppa -y >> /tmp/m3.log
+sudo apt-get update >> /tmp/m3.log
+sudo apt-get install -y fontconfig openjdk-17-jre openjdk-17-jdk >> /tmp/m3.log
+
+## Install Docker
+echo "pvn installing docker" >> /tmp/m3.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installDocker.sh -P /tmp >> /tmp/m3.log
+sudo chmod 755 /tmp/installDocker.sh >> /tmp/m3.log
+sudo bash /tmp/installDocker.sh >> /tmp/m3.log
+sudo systemctl restart docker.service >> /tmp/m3.log
+
+## Install CRI-Docker
+echo "pvn installing cri" >> /tmp/m3.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installCRIDockerd.sh -P /tmp >> /tmp/m3.log
+sudo chmod 755 /tmp/installCRIDockerd.sh >> /tmp/m3.log
+sudo bash /tmp/installCRIDockerd.sh >> /tmp/m3.log
+sudo systemctl restart cri-docker.service >> /tmp/m3.log
+
+## Install kubeadm,kubelet,kubectl
+echo "pvn installing k8s related" >> /tmp/m3.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installK8S.sh -P /tmp >> /tmp/m3.log
+sudo chmod 755 /tmp/installK8S.sh >> /tmp/m3.log
+sudo bash /tmp/installK8S.sh >> /tmp/m3.log
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ cat m3-pb.yaml 
+- name: Installing java docker and k8s in Machine-3
+  hosts: m3
+  become: true
+  become_user: root
+  tasks:
+  - name: executing m3.sh script
+    script: m3.sh
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ cat m24.sh 
+#!/bin/bash
+echo "deleting if exists and creating a log file to track the process"
+rm -rf /tmp/m24.log
+touch /tmp/m24.log
+
+## Install Docker
+echo "pvn installing docker" >> /tmp/m24.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installDocker.sh -P /tmp >> /tmp/m24.log
+sudo chmod 755 /tmp/installDocker.sh >> /tmp/m24.log
+sudo bash /tmp/installDocker.sh >> /tmp/m24.log
+sudo systemctl restart docker.service >> /tmp/m24.log
+
+## Install CRI-Docker
+echo "pvn installing cri" >> /tmp/m24.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installCRIDockerd.sh -P /tmp >> /tmp/m24.log
+sudo chmod 755 /tmp/installCRIDockerd.sh >> /tmp/m24.log
+sudo bash /tmp/installCRIDockerd.sh >> /tmp/m24.log
+sudo systemctl restart cri-docker.service >> /tmp/m24.log
+
+## Install kubeadm,kubelet,kubectl
+echo "pvn installing docker" >> /tmp/m24.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installK8S.sh -P /tmp >> /tmp/m24.log
+sudo chmod 755 /tmp/installK8S.sh >> /tmp/m24.log
+sudo bash /tmp/installK8S.sh >> /tmp/m24.log
+ubuntu@ip-172-31-0-240:~$ 
+ubuntu@ip-172-31-0-240:~$ cat m24-pb.yaml 
+- name: Installing docker and k8s in Machine-2 and Machine-4
+  hosts: m24
+  become: true
+  become_user: root
+  tasks:
+  - name: executing m24.sh script
+    script: m24.sh
+ubuntu@ip-172-31-0-240:~$ 

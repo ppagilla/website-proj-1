@@ -1,0 +1,333 @@
+
+ step-1   :   first create m1 manually which acts as terraform server and Jenkins master.
+
+ step-2   :   - install ansible manually on m1.
+
+ step-3   :   - install terraform, java, jenkins via ansible. 
+CMD: ansible-playbook m1-pb.yaml
+manually do basic jenkins configurations. (cred: ppagilla/ppagilla)
+
+ step-4   :   - create 3 machines more via terraform as m3, m2 and m4. 
+CMD: 
+terraform init
+terraform plan
+terraform apply
+
+ step-5   :   from m1 via ansible on m3 which acts as jenkins worker and k8s master, install java, docker, k8s-master-config.
+CMD: ansible-playbook -i invF m3-pb.yaml -u ubuntu --private-key tfs.pem
+manually do below,
+ CONFIGURING JENKINS-AGENT: 
+   on master/m1 publicip:8080
+     add m3 machine as worker node with ssh and pem file method
+	 configure dockerhub credentials
+ CONFIGURING m3 as k8s master
+   sudo kubeadm init --cri-socket unix:///var/run/cri-dockerd.sock --ignore-preflight-errors=all
+   sudo mkdir -p $HOME/.kube
+   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+   sudo chown $(id -u):$(id -g) $HOME/.kube/config
+       kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.24.1/manifests/calico.yaml   
+
+ step-6   :   from m1 via ansible on m2 and m4 which acts as k8s-worker nodes so install k8s-slave-config.
+CMD: ansible-playbook -i invF m24-pb.yaml -u ubuntu --private-key tfs.pem
+manually do below,
+ CONFIGURING k8s SLAVES: 
+    on master run kubeadm token create --print-join-command 
+    copy the kubeadm join token from master &
+           ensure to add --cri-socket unix:///var/run/cri-dockerd.sock as below &
+           ensure to add sudo 
+           then run on worker nodes
+# sudo kubeadm join 172.31.3.123:6443 --token y48qc1.mfigynb034vgts8e --discovery-token-ca-cert-hash sha256:0ff942e6c4a2406026646ae474ece586ab8349fec9dd4b280388e2fd09c212d0 --cri-socket unix:///var/run/cri-dockerd.sock	   
+# did above command manually, but can also do via ad-hoc shell module via ansible using m24 group. 
+
+ step-7   :   CREATE DOCKERFILE IN provided forked repo for building image. 
+
+ step-8   :   CREATE deployment.yaml and npservice.yaml FILE IN provided forked repo for deployment. 
+
+ step-9   :   via JPAAC prepare a job so that it will auto trigger below tasks, when commit made on master branch of git repo 
+					= will trigger cloning of repo
+					= will trigger docker image creation and push to docker hub. 
+					= will trigger deployment with newly built image and create nodeport service for public exposure. 
+======================
+
+
+
+
+
+=========================================================================================================================================================================================================================================================================
+=========================================================================================================================================================================================================================================================================
+=========================================================================================================================================================================================================================================================================
+=========================================================================================================================================================================================================================================================================
+
+
+
+
+step-1:::
+create a machine(m1), install ansible manually. 
+
+===
+
+step-2:::
+sudo apt update
+sudo apt install software-properties-common 
+sudo add-apt-repository --yes --update ppa:ansible/ansible
+sudo apt install ansible -y
+
+===
+
+step-3:::
+- name: Installing java jenkins and terraform in Machine-1
+  hosts: localhost
+  become: true
+  become_user: root
+  tasks:
+  - name: executing m1.sh script
+    script: m1.sh
+######
+install java, jenkins(MANUALLY CONFIGURE VIA UI additionally), terraform via ansible on m1. 
+m1.sh
+#!/bin/bash
+echo "deleting if exists and creating a log file to track the process"
+rm -rf /tmp/m1.log
+touch /tmp/m1.log
+
+echo "pvn installing java" >> /tmp/m1.log
+sudo add-apt-repository ppa:openjdk-r/ppa -y >> /tmp/m1.log
+sudo apt-get update >> /tmp/m1.log
+sudo apt-get install -y fontconfig openjdk-17-jre openjdk-17-jdk >> /tmp/m1.log
+
+echo "pvn installing jenkins" >> /tmp/m1.log
+sudo wget -O /usr/share/keyrings/jenkins-keyring.asc https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key >> /tmp/m1.log
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list >> /tmp/m1.log
+sudo apt-get update >> /tmp/m1.log
+sudo apt-get install jenkins -y >> /tmp/m1.log
+
+echo "installing terraform" >> /tmp/m1.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installTerraform.sh -P /tmp >> /tmp/m1.log
+sudo chmod 755 /tmp/installTerraform.sh >> /tmp/m1.log
+sudo bash /tmp/installTerraform.sh >> /tmp/m1.log
+
+CMD: ansible-playbook m1-pb.yaml
+
+===
+
+step-4:::
+create 3 machines m3, m2 and m4 via terraform. 
+resources.tf 
+provider "aws" {
+        region = "us-east-2"
+        access_key = ""
+        secret_key = ""
+}
+
+resource "aws_instance" "instance2" {
+        ami = "ami-05fb0b8c1424f266b"
+        instance_type = "t2.micro"
+        key_name = "tfs"
+        tags = {
+        Name = "m2"
+        }
+}
+resource "aws_instance" "instance3" {
+        ami = "ami-05fb0b8c1424f266b"
+        instance_type = "t2.small"
+        key_name = "tfs"
+        tags = {
+        Name = "m3"
+        }
+}
+resource "aws_instance" "instance4" {
+        ami = "ami-05fb0b8c1424f266b"
+        instance_type = "t2.micro"
+        key_name = "tfs"
+        tags = {
+        Name = "m4"
+        }
+}
+
+CMD: 
+terraform init
+terraform plan
+terraform apply
+
+===
+
+step-5:::
+- name: Installing java docker and k8s in Machine-3
+  hosts: m3
+  become: true
+  become_user: root
+  tasks:
+  - name: executing m3.sh script
+    script: m3.sh
+	
+install docker, k8s master and java on m3 via ansible.
+m3.sh 
+#!/bin/bash
+echo "deleting if exists and creating a log file to track the process"
+rm -rf /tmp/m3.log
+touch /tmp/m3.log
+
+echo "pvn installing java" >> /tmp/m3.log
+sudo add-apt-repository ppa:openjdk-r/ppa -y >> /tmp/m3.log
+sudo apt-get update >> /tmp/m3.log
+sudo apt-get install -y fontconfig openjdk-17-jre openjdk-17-jdk >> /tmp/m3.log
+
+## Install Docker
+echo "pvn installing docker" >> /tmp/m3.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installDocker.sh -P /tmp >> /tmp/m3.log
+sudo chmod 755 /tmp/installDocker.sh >> /tmp/m3.log
+sudo bash /tmp/installDocker.sh >> /tmp/m3.log
+sudo systemctl restart docker.service >> /tmp/m3.log
+
+## Install CRI-Docker
+echo "pvn installing cri" >> /tmp/m3.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installCRIDockerd.sh -P /tmp >> /tmp/m3.log
+sudo chmod 755 /tmp/installCRIDockerd.sh >> /tmp/m3.log
+sudo bash /tmp/installCRIDockerd.sh >> /tmp/m3.log
+sudo systemctl restart cri-docker.service >> /tmp/m3.log
+
+## Install kubeadm,kubelet,kubectl
+echo "pvn installing k8s related" >> /tmp/m3.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installK8S.sh -P /tmp >> /tmp/m3.log
+sudo chmod 755 /tmp/installK8S.sh >> /tmp/m3.log
+sudo bash /tmp/installK8S.sh >> /tmp/m3.log
+
+===
+
+step-6:::
+install docker and k8s slave configs on m2 and m4 via ansible and manually join them under m3 k8s master/control plane.
+- name: Installing docker and k8s in Machine-2 and Machine-4
+  hosts: m24
+  become: true
+  become_user: root
+  tasks:
+  - name: executing m24.sh script
+    script: m24.sh
+
+m24.sh
+#!/bin/bash
+echo "deleting if exists and creating a log file to track the process"
+rm -rf /tmp/m24.log
+touch /tmp/m24.log
+
+## Install Docker
+echo "pvn installing docker" >> /tmp/m24.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installDocker.sh -P /tmp >> /tmp/m24.log
+sudo chmod 755 /tmp/installDocker.sh >> /tmp/m24.log
+sudo bash /tmp/installDocker.sh >> /tmp/m24.log
+sudo systemctl restart docker.service >> /tmp/m24.log
+
+## Install CRI-Docker
+echo "pvn installing cri" >> /tmp/m24.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installCRIDockerd.sh -P /tmp >> /tmp/m24.log
+sudo chmod 755 /tmp/installCRIDockerd.sh >> /tmp/m24.log
+sudo bash /tmp/installCRIDockerd.sh >> /tmp/m24.log
+sudo systemctl restart cri-docker.service >> /tmp/m24.log
+
+## Install kubeadm,kubelet,kubectl
+echo "pvn installing docker" >> /tmp/m24.log
+sudo wget https://raw.githubusercontent.com/lerndevops/labs/master/scripts/installK8S.sh -P /tmp >> /tmp/m24.log
+sudo chmod 755 /tmp/installK8S.sh >> /tmp/m24.log
+sudo bash /tmp/installK8S.sh >> /tmp/m24.log
+
+
+====
+
+step-7:::
+
+/home/ubuntu/jenkins/workspace/Proj2/dockerFile
+FROM ubuntu
+RUN apt update -y
+RUN apt install apache2 -y
+ADD . /var/www/html/
+ENTRYPOINT apachectl -D FOREGROUND
+EXPOSE 80
+
+===
+
+step-8::: 
+
+/home/ubuntu/jenkins/workspace/Proj2/deployment.yaml
+kind: Deployment #kubectl api-resources
+apiVersion: apps/v1    
+metadata: 
+  name: proj2-deployment
+  labels:                    #not mandatory
+    check: check2
+spec: 
+  replicas: 2
+  selector: 
+    matchLabels: 
+      app: proj2-pods
+  template: 
+    metadata: 
+      labels: 
+        app: proj2-pods
+    spec: 
+      containers: 
+        - name: proj2-container
+          image: ppagilla/proj2
+
+/home/ubuntu/jenkins/workspace/Proj2/service.yaml
+kind: Service
+apiVersion: v1
+metadata: 
+  name: proj2-np-svc
+spec: 
+  type: NodePort
+  selector: 
+    app: proj2-pods              #labels of pods to which we want to route traffic.
+  ports: 
+    - name: port-inside-cont
+      port: 80
+      nodePort: 30008   #30000 < np < 32767
+	  
+===
+
+step-9::: 
+
+Jenkins Pipeline as a Code: 
+
+pipeline {
+    agent any
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials("17881d5b-283c-41a9-b51e-6fe5ddaa10c6")
+    }
+    stages {
+        stage('Git') {
+            agent {
+                label 'k8s-master'
+            }
+            steps {
+                script {
+                    git 'https://github.com/ppagilla/website-proj-1.git '
+                }
+            }
+        }
+        stage('Docker') {
+            agent {
+                label 'k8s-master'
+            }
+            steps {
+                script {
+                    sh 'sudo docker build -f /home/ubuntu/jenkins/workspace/Proj2/dockerFile -t ppagilla/proj2 /home/ubuntu/jenkins/workspace/Proj2/'
+                    sh 'sudo docker login -u ${DOCKERHUB_CREDENTIALS_USR} -p ${DOCKERHUB_CREDENTIALS_PSW}'
+                    sh 'sudo docker push ppagilla/proj2'
+                }
+            }
+        }
+        stage('Kubernetes') {
+            agent {
+                label 'k8s-master'
+            }
+            steps {
+                script {
+                    sh 'kubectl delete deployment proj2-deployment'
+                    sh 'kubectl apply -f /home/ubuntu/jenkins/workspace/Proj2/deployment.yaml'
+                    sh 'kubectl delete service proj2-np-svc'
+                    sh 'kubectl apply -f /home/ubuntu/jenkins/workspace/Proj2/npService.yaml'
+                }
+            }
+        }
+    }
+}
